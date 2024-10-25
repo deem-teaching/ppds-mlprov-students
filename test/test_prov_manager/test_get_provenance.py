@@ -40,7 +40,7 @@ def test_get_provenance_from_classifier():
     assert_frame_equal(clf_train_labels.provenance, orig_pandas.DataFrame({"0": list(range(22792))}))
 
     selected_test_data = test_data[["age", "hours-per-week"]]
-    result = clf.predict(selected_test_data)
+    _ = clf.predict(selected_test_data)
     clf_test_data = MLProvManager().get_test_data_for_classifier(clf)
     assert isinstance(clf_test_data, pd.DataFrame)
     assert_frame_equal(clf_test_data.provenance, orig_pandas.DataFrame({"1": list(range(9769))}))

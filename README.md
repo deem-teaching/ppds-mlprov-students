@@ -94,7 +94,7 @@ def get_next_table_id(self):
 def register_input_table(self, table: any):
     self._all_input_tables.append(table)
 ```
-Furthemore, you need to add the following code to the [DataFrame](mlprov/pandas/_wrappers.py) in line 11:
+Furthermore, you need to add the following code to the [DataFrame](mlprov/pandas/_wrappers.py) in line 11:
 ```python
 provenance_dict = {f"{MLProvManager().get_next_table_id()}": orig_numpy.arange((len(self)))}
 self.provenance = OrigDataFrame(provenance_dict)
