@@ -54,7 +54,7 @@ So `{(1, 4), (2, 7)}` could be stored like this:
 
 
 The next question is where we should store the provenance information for each intermediate result of our pipeline. The easiest way is to just store it in the intermediate result object. So we subclass intermediate results like pandas `DataFrame`s with our own `ProvDataFrame`, that inherits from `DataFrame`, but also adds an attribute where we can store the provenance dataframe.
-Finally, in the end of the pipeline, we want to know the most important intermediate results of the pipeline for follow-up analysis. These intermediate results, as shown in the example figure, are the train_data, train_labels, test_data, test_predictions, test_labels, and source_tables. How can we identify those key artifacts in complex pipelines? The easiest way is to look at which variables are the input to `model.fit(train_data, train_labels)` of the ML model used in the end of the pipeline, as well as the input to the final score computation, e.g., the sklearn function `accuracy_score(test_predictions, test_labels)`. For `test_predictions`, we also want to know the `test_data` that resulted in the predictions, thus, we can also store the `test_data` intermediate result from the `model.predict` function call. So we want to overwrite the `model.fit`, `model.score`, metric computation functions like `accuracy_score`, and `model.predict` to store these core pipeline artifacts with their provenance somewhere. One way to do this is to store the result in the fitted model object and the computed score metric (we can also subclass classes like floats). Then, we can use a class like the `ProvManager` to extract these core pipeline artifacts with their provenance from arbitrary pipeliens given just the fitted model and the score object. Based on this, we can then implement different pipeline analyses. 
+Finally, in the end of the pipeline, we want to know the most important intermediate results of the pipeline for follow-up analysis. These intermediate results, as shown in the example figure, are the `train_data`, `train_labels`, `test_data`, `test_predictions`, `test_labels`, and `source_tables`. How can we identify those key artifacts in complex pipelines? The easiest way is to look at which variables are the input to `model.fit(train_data, train_labels)` of the ML model used in the end of the pipeline, as well as the input to the final score computation, e.g., the sklearn function `accuracy_score(test_predictions, test_labels)`. For `test_predictions`, we also want to know the `test_data` that resulted in the predictions, thus, we can also store the `test_data` intermediate result from the `model.predict` function call. So, we want to overwrite the `model.fit`, `model.score`, metric computation functions like `accuracy_score`, and `model.predict` to store these core pipeline artifacts with their provenance somewhere. One way to do this is to store the result in the fitted model object and the computed score metric (we can also subclass classes like floats). Then, we can use a class like the `ProvManager` to extract these core pipeline artifacts with their provenance from arbitrary pipeliens given just the fitted model and the score object. Based on this, we can then implement different pipeline analyses. 
 
 ## Exemplary provenance applications
 As part of this project, you are tasked with implemeting three different ML pipeline analyses that work with the key pipeline artifacts and their provenance, as seen in the exemplary Figure. In the following, we will explain each problem and how provenance can help with it.
@@ -64,13 +64,26 @@ As part of this project, you are tasked with implemeting three different ML pipe
 3) *Assessing Group Fairness*: Fairness evaluations of ML pipelines often require you to consider sensitive demographic features like `age`, `gender`, or `race`. However, in many cases, you cannot (and should not) use those features to train your ML model. Thus, these features often get removed from the data using projections early in ML pipelines. However, to compute fairness metrics for ML pipelines on the test data, we need this demographic side information! Provenance can help with this: we can use the provenance to join the test set predictions and true labels with the sensitive column information by using the provenance of the test data.
 
 We already provide skeletons for these provenance analyses [here](/mlprov/prov_analysis).
+
 ## Getting started
+
 Please note that the skeleton code we provide is only a starting point to develop your own solution.  You may edit all existing code except the existing tests, and this is even be required to build a full working solution.
 
 While working on this project, we recommend to follow a two-step approach. First, make sure that your solution implements all the required functionality. After, you can optimize the performance until you reach the required performance thresholds (e.g., making pandas calls with added provenance tracking faster by using DuckDB instead of pandas).
 
+### Installation
+Please use **Python3.11** and install the required libraries exactly like specified in [requirements.txt](requirements.txt) via a [virtualenv](https://docs.python.org/3/library/venv.html):
+
+```bash
+python -m venv mlprov_env
+source mlprov_env/bin/activate
+pip install -r requirements.txt
+```
+
+### First task
+
 To implement the provenance tracking functionality, you can start by adding provenance support operator by operator. 
-read_csv is a simple pandas function to get familiar with the idea. [Here](/test/test_loaders.py) we already provide a test that checks your solution for correctness. The function that you need to implement is located [here](/mlprov/pandas/_loaders.py). First, you need to think about how you want to represent the provenance. The skeleton interface for this is the `ProvenanceMixin` located [here](/mlprov/_prov_mixin.py). For pandas DataFrames, the skeleton already contains a `ProvDataFrame` that extends the standard DataFrame and implements the provenance interface. It is located [here](mlprov/pandas/_wrappers.py). One way to represent the provenance is to use a dict of numpy arrays, with the keys being a reference to a specific version of a source table and the values being numpy arrays with the row index in the datasource. With this code you can make the initial read_csv test pass:
+read_csv is a simple pandas function to get familiar with the idea. [Here](/test/test_loaders.py) we already provide a test that checks your solution for correctness (use this test to evaluate your implementation). The function that you need to implement is located [here](/mlprov/pandas/_loaders.py). First, you need to think about how you want to represent the provenance. The skeleton interface for this is the `ProvenanceMixin` located [here](/mlprov/_prov_mixin.py). For pandas DataFrames, the skeleton already contains a `ProvDataFrame` (class `DataFrame` in [here](mlprov/pandas/_wrappers.py)) that extends the standard DataFrame and implements the provenance interface. It is located [here](mlprov/pandas/_wrappers.py). One way to represent the provenance is to use a dict of numpy arrays, with the keys being a reference to a specific version of a source table and the values being numpy arrays with the row index in the datasource. With this code you can make the initial [read_csv](/mlprov/pandas/_loaders.py) test pass:
 ```python
 import pandas as orig_pandas
 from mlprov.pandas._wrappers import DataFrame
@@ -96,19 +109,19 @@ def register_input_table(self, table: any):
 ```
 Furthermore, you need to add the following code to the [DataFrame](mlprov/pandas/_wrappers.py) in line 11:
 ```python
-provenance_dict = {f"{MLProvManager().get_next_table_id()}": orig_numpy.arange((len(self)))}
+provenance_dict = {f"{MLProvManager().get_next_table_id()}": numpy.arange((len(self)))}
 self.provenance = OrigDataFrame(provenance_dict)
 MLProvManager().register_input_table(self)
 ```
 with the following imports:
 ```python
-import numpy as orig_numpy
+import numpy
 from pandas import DataFrame as OrigDataFrame
 from mlprov import MLProvManager
 ```
 By adding this code, you can know which rows of the table with the index are used in the current table.
 
-Please note that this is only one way to implement this, and that you might want to change this later.
+Please note that this is not the only one way to implement this, and that you might want to change this later.
 
 Once the provenance tracking works, you can look into implementing the missing functions in the `MLProvManager` located [here](/mlprov/_prov_manager.py) and the analyses that use the provenance, for which we provide skeleton classes that you will need to change [here](/mlprov/prov_analysis).
 
@@ -117,6 +130,18 @@ Once this example works, you can look into the next operator, e.g., a pandas pro
 Once that works, you can start to look into more complicated pipelines from [here](/example_pipelines). [Here](/test/test_full_pipeline_prov.py) we already provide a unit test for an end-to-end pipeline as a starting point.
 
 Then, you are on your own: add support for more complex pipeline, add utility functions for getting and working with the provenance, and optimize the performance of your library! 
+
+### Suggested next steps (ordered)
+
+Iterate through existing [tests](test/) and ensure that you pass all test cases:
+
+- [Loaders](test/test_loaders.py) (first task)
+- [numpy](test/test_numpy)
+- [pandas](test/test_pandas)
+- [sklearn](test/test_sklearn)
+- [Provenance manager](test/test_prov_manager)
+- [Provenance analysis](test/test_prov_analysis)
+- Pipelines: [full pipelines](test/test_full_pipeline_prov.py), [example pipelines](test/test_example_pipelines.py)
 
 ## Performance
 
