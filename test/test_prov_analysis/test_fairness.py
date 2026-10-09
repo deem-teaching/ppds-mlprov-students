@@ -61,5 +61,5 @@ def test_simplified_adult_complex_fairness():
 
     expected_result = {'Female': 0.12, 'Male': 0.15}
     assert len(fnr_by_group) == 2
-    assert fnr_by_group['Female'] == pytest.approx(expected_result['Female'], abs=1.)
-    assert fnr_by_group['Male'] == pytest.approx(expected_result['Male'], abs=1.)
+    assert fnr_by_group['Female'] == pytest.approx(expected_result['Female'], abs=0.05)
+    assert fnr_by_group['Male'] == pytest.approx(expected_result['Male'], abs=0.05)
